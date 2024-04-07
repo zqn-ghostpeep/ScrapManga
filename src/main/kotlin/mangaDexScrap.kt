@@ -1,4 +1,5 @@
 import org.jsoup.Jsoup
+import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -71,7 +72,84 @@ class mangaDexScrap {
     }
     //pulls the manga details once a single manga was selected
     fun pulledMangaDetails(manga: mangaObj){
+        try {
+            //base variables
+            var webGood = false
 
+            //checks to make sure the url is all good
+            val url = URL(manga.mangaUrl)
+            val urlc = url.openConnection() as HttpURLConnection
+            urlc.connectTimeout = 10 * 1000 // 10 s.
+            urlc.connect()
+            webGood = urlc.responseCode == 200
+
+            //end process if url is not up or good
+            if (!webGood) {
+                println("WEB SITE IS DOWN")//remove
+                return
+            }
+            println("We are all good chief")//remove
+
+            //pulling html and main parts to pull the manga details
+            val mainHtmlDoc = Jsoup.connect(manga.mangaUrl).get()
+            val mostMangaDetailsDoc = mainHtmlDoc.getElementsByClass("manga-info-text")
+            val mangaSummaryDoc = mainHtmlDoc.getElementById("noidungm")
+            val mangaChapterListDoc = mainHtmlDoc.getElementsByClass("chapter-list")
+
+            //get the summary of the manga
+            manga.mangaSummary = mangaSummaryDoc?.text().toString().trim()
+
+            //get the rest of the detail items
+            val listDetailItems = mostMangaDetailsDoc[0].select("li")
+            for (listItem in listDetailItems){
+                //author
+                if(listItem.text().contains("author",ignoreCase = true)){
+                    manga.mangaAuthor = listItem.text().substringAfter(":").trim()
+                }
+                //status
+                else if(listItem.text().contains("status",ignoreCase = true)){
+                    manga.mangaStatus = listItem.text().substringAfter(":").trim()
+                }
+                //genres
+                else if (listItem.text().contains("genres",ignoreCase = true)){
+                    val listOfGeres = listItem.text().substringAfter(":").split(",")
+                    manga.mangaGenresList = listOfGeres as ArrayList<String>
+                    manga.mangaGenresList.removeLast()
+                }
+            }
+
+            //pulls the chapters with the chapter url and the name
+            val listChapterItems = mangaChapterListDoc[0].children().select("a")
+            for (eachRow in listChapterItems){
+                val mangaC = mangaChapter()
+                mangaC.mangaChapterName = eachRow.text()
+                mangaC.mangaChapterURl = baseSearchURL + eachRow.attr("href").toString()
+                manga.mangaChapterList.add(mangaC)
+            }
+            println(manga.mangaName)
+            println(manga.mangaAuthor)
+            println(manga.mangaImg)
+            println(manga.mangaStatus)
+            println(manga.mangaSummary)
+            println(manga.mangaUrl)
+            println("Number of chapters: "+manga.mangaChapterList.size.toString())
+            println("Genres")
+            for(g in manga.mangaGenresList){
+                println(g.trim())
+            }
+            for(c in manga.mangaChapterList){
+                println(c.mangaChapterName)
+                println(c.mangaChapterURl)
+            }
+        }
+        //if error display message to user
+        catch (e: Exception){
+            println("THERE HAS BEEN A ERROR")
+            println(e.message)
+            val last = e.stackTrace.lastIndex
+            println(e.stackTrace[last-2].methodName)
+            println(e.stackTrace[last-2].lineNumber)
+        }
     }
 
     //pulls the images of the selected chapter
